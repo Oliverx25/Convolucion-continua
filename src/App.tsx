@@ -9,8 +9,9 @@ import {
 import { TimeChart } from './components/TimeChart';
 
 const T = 1;
-const T_MIN = -2;
-const T_MAX = 2;
+const RANGE_MIN = 0.5;
+const RANGE_MAX = 50;
+const RANGE_DEFAULT = 2;
 const N_POINTS = 400;
 const N_INTEGRAL = 600;
 const DEFAULT_CUSTOM_EXPRESSION = 'sin(2*pi*t)';
@@ -20,6 +21,10 @@ function App() {
   const [customExprF, setCustomExprF] = useState(DEFAULT_CUSTOM_EXPRESSION);
   const [signalIdG, setSignalIdG] = useState<SignalId>('rect');
   const [customExprG, setCustomExprG] = useState('1');
+  const [range, setRange] = useState(RANGE_DEFAULT);
+
+  const tMin = -range;
+  const tMax = range;
 
   const f = useMemo(() => {
     if (signalIdF === 'custom') return createCustomSignal(customExprF, T);
@@ -43,12 +48,12 @@ function App() {
       };
     }
 
-    const outputTimes = linspace(T_MIN, T_MAX, N_POINTS);
+    const outputTimes = linspace(tMin, tMax, N_POINTS);
     const convValues = computeConvolution(
       f!,
       g!,
-      T_MIN,
-      T_MAX,
+      tMin,
+      tMax,
       N_INTEGRAL,
       outputTimes
     );
@@ -58,7 +63,7 @@ function App() {
     const dataConv = outputTimes.map((t, i) => ({ t, value: convValues[i] }));
 
     return { dataF, dataG, dataConv, isValid: true };
-  }, [f, g]);
+  }, [f, g, range]);
 
   return (
     <div className="min-h-screen bg-[#0f0f12] text-zinc-100">
@@ -145,6 +150,51 @@ function App() {
                 )}
               </div>
             </div>
+            <div className="mt-6 flex flex-wrap items-end gap-4 border-t border-zinc-700/50 pt-6">
+              <div>
+                <label
+                  htmlFor="range"
+                  className="mb-2 block text-sm font-medium text-zinc-400"
+                >
+                  Rango de la gráfica (eje t)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="range"
+                    type="number"
+                    min={RANGE_MIN}
+                    max={RANGE_MAX}
+                    step={0.5}
+                    value={range}
+                    onChange={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (!Number.isNaN(v))
+                        setRange(Math.max(RANGE_MIN, Math.min(RANGE_MAX, v)));
+                    }}
+                    className="w-24 rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 font-display text-sm text-zinc-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-zinc-500">
+                    t ∈ [−{range}, {range}]
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {[2, 5, 10, 20].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRange(r)}
+                    className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      range === r
+                        ? 'bg-violet-600 text-white'
+                        : 'bg-zinc-700/80 text-zinc-300 hover:bg-zinc-600/80'
+                    }`}
+                  >
+                    ±{r}
+                  </button>
+                ))}
+              </div>
+            </div>
             {(!f || !g) && (
               <p className="mt-3 text-xs text-red-400">
                 Expresiones inválidas. Usa la variable t (ej: sin(2*pi*t)).
@@ -156,7 +206,7 @@ function App() {
               </p>
             )}
             <p className="mt-4 text-xs text-zinc-500">
-              Ventana de integración τ ∈ [{T_MIN}, {T_MAX}] · {N_INTEGRAL} puntos
+              Ventana de integración τ ∈ [{tMin}, {tMax}] · {N_INTEGRAL} puntos
             </p>
           </section>
 
