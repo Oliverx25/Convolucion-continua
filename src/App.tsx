@@ -150,6 +150,11 @@ function App() {
                 Expresiones inválidas. Usa la variable t (ej: sin(2*pi*t)).
               </p>
             )}
+            {(signalIdF === 'custom' || signalIdG === 'custom') && (!!f || !!g) && (
+              <p className="mt-3 text-xs text-zinc-500">
+                Expresión personalizada: se evalúa en tiempo real t (no periódica). Puedes definir pulsos únicos, ej: 5*(t&gt;=0)*(t&lt;=2) para un pulso de amplitud 5 en [0, 2].
+              </p>
+            )}
             <p className="mt-4 text-xs text-zinc-500">
               Ventana de integración τ ∈ [{T_MIN}, {T_MAX}] · {N_INTEGRAL} puntos
             </p>
