@@ -75,14 +75,13 @@ function App() {
     return SIGNAL_OPTIONS[signalIdG].fn;
   }, [signalIdG, customExprG]);
 
-  const { dataF, dataG, dataConv, isValid } = useMemo(() => {
+  const { dataConv, convYDomain, isValid } = useMemo(() => {
     const validF = !!f;
     const validG = !!g;
     if (!validF || !validG) {
       return {
-        dataF: [] as { t: number; value: number }[],
-        dataG: [] as { t: number; value: number }[],
         dataConv: [] as { t: number; value: number }[],
+        convYDomain: [0, 1] as [number, number],
         isValid: false,
       };
     }
@@ -97,11 +96,22 @@ function App() {
       outputTimes
     );
 
-    const dataF = outputTimes.map((t) => ({ t, value: f!(t) }));
-    const dataG = outputTimes.map((t) => ({ t, value: g!(t) }));
     const dataConv = outputTimes.map((t, i) => ({ t, value: convValues[i] }));
 
-    return { dataF, dataG, dataConv, isValid: true };
+    const convValuesOnly = dataConv.map((p) => p.value);
+    const convMin = convValuesOnly.length
+      ? Math.min(...convValuesOnly)
+      : 0;
+    const convMax = convValuesOnly.length
+      ? Math.max(...convValuesOnly)
+      : 1;
+    const convPadding = Math.max(0.2, (convMax - convMin) * 0.1) || 0.2;
+    const convYDomain: [number, number] = [
+      convMin - convPadding,
+      convMax + convPadding,
+    ];
+
+    return { dataConv, convYDomain, isValid: true };
   }, [f, g, range]);
 
   const dataConvVisible = useMemo(() => {
@@ -255,42 +265,6 @@ function App() {
             </p>
           </section>
 
-          <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-6">
-            <h2 className="mb-4 font-display text-lg font-medium text-zinc-200">
-              f(t)
-            </h2>
-            {dataF.length > 0 ? (
-              <TimeChart
-                data={dataF}
-                title="f(t)"
-                color="#00d4aa"
-                xDomain={xDomain}
-              />
-            ) : (
-              <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
-                Elige señales válidas para ver f(t)
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-6">
-            <h2 className="mb-4 font-display text-lg font-medium text-zinc-200">
-              g(t)
-            </h2>
-            {dataG.length > 0 ? (
-              <TimeChart
-                data={dataG}
-                title="g(t)"
-                color="#f472b6"
-                xDomain={xDomain}
-              />
-            ) : (
-              <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
-                Elige señales válidas para ver g(t)
-              </div>
-            )}
-          </section>
-
           {isValid && dataConv.length > 0 && (
             <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-6">
               <h2 className="mb-4 font-display text-lg font-medium text-zinc-200">
@@ -336,15 +310,15 @@ function App() {
             {dataConv.length > 0 ? (
               <>
                 <p className="mb-4 text-sm text-zinc-400">
-                  La curva se dibuja al reproducir la animación (de t = {tMin} a t = {tMax}).
+                  Eje t fijo: la curva (f * g)(t) se dibuja al reproducir la animación, como un monitor de latidos.
                 </p>
                 <TimeChart
-                data={dataConvVisible}
-                title="(f * g)(t)"
-                color="#a78bfa"
-                yDomain="auto"
-                xDomain={xDomain}
-              />
+                  data={dataConvVisible}
+                  title="(f * g)(t)"
+                  color="#a78bfa"
+                  yDomain={convYDomain}
+                  xDomain={xDomain}
+                />
               </>
             ) : (
               <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
