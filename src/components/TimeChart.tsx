@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import { formatAxisTick } from '../lib/formatAxisTick';
 
 interface TimePoint {
   t: number;
@@ -57,7 +58,7 @@ export function TimeChart({
             dataKey="t"
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
-            tickFormatter={(v) => v.toFixed(2)}
+            tickFormatter={(v) => formatAxisTick(Number(v))}
             domain={xDomain}
             label={{
               value: 't (s)',
@@ -69,6 +70,7 @@ export function TimeChart({
           <YAxis
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
+            tickFormatter={(v) => formatAxisTick(Number(v))}
             domain={domain}
             label={{
               value: 'Amplitud',

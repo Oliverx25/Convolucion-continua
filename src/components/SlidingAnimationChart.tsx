@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import { formatAxisTick } from '../lib/formatAxisTick';
 import type { SignalFunction } from '../lib/convolution';
 
 interface SlidingAnimationChartProps {
@@ -49,7 +50,7 @@ export function SlidingAnimationChart({
             dataKey="tau"
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
-            tickFormatter={(v) => v.toFixed(2)}
+            tickFormatter={(v) => formatAxisTick(Number(v))}
             domain={[tMin, tMax]}
             label={{
               value: 'τ (s)',
@@ -61,6 +62,7 @@ export function SlidingAnimationChart({
           <YAxis
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
+            tickFormatter={(v) => formatAxisTick(Number(v))}
             label={{
               value: 'Amplitud',
               angle: -90,
