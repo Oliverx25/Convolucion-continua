@@ -11,7 +11,7 @@ import {
 
 interface TimePoint {
   t: number;
-  value: number;
+  value: number | null;
 }
 
 interface TimeChartProps {
@@ -21,6 +21,8 @@ interface TimeChartProps {
   yDomain?: [number, number] | 'auto';
   /** Dominio del eje X para centrar t=0 (ej. [tMin, tMax]) */
   xDomain?: [number, number];
+  /** Si false, no une puntos con value null (para dibujo progresivo) */
+  connectNulls?: boolean;
 }
 
 export function TimeChart({
@@ -29,11 +31,12 @@ export function TimeChart({
   color = '#00d4aa',
   yDomain = 'auto',
   xDomain,
+  connectNulls = true,
 }: TimeChartProps) {
   const domain: [number, number] =
     yDomain === 'auto'
       ? (() => {
-          const values = data.map((d) => d.value);
+          const values = data.map((d) => d.value).filter((v): v is number => v != null);
           if (values.length === 0) return [-1.5, 1.5];
           const min = Math.min(...values);
           const max = Math.max(...values);
@@ -81,7 +84,9 @@ export function TimeChart({
               borderRadius: '8px',
             }}
             labelStyle={{ color: '#a1a1aa' }}
-            formatter={(value: number) => [value.toFixed(4), title]}
+            formatter={(value: number | null) =>
+              value != null ? [value.toFixed(4), title] : ['—', title]
+            }
             labelFormatter={(t) => `t = ${Number(t).toFixed(3)} s`}
           />
           <ReferenceLine x={0} stroke="#52525b" strokeDasharray="2 2" />
@@ -93,7 +98,7 @@ export function TimeChart({
             stroke={color}
             strokeWidth={2}
             dot={false}
-            connectNulls
+            connectNulls={connectNulls}
           />
         </LineChart>
       </ResponsiveContainer>

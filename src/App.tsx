@@ -115,7 +115,9 @@ function App() {
   }, [f, g, range]);
 
   const dataConvVisible = useMemo(() => {
-    return dataConv.filter((p: { t: number; value: number }) => p.t <= animationT);
+    return dataConv.map((p) =>
+      p.t <= animationT ? p : { t: p.t, value: null as number | null }
+    );
   }, [dataConv, animationT]);
 
   const xDomain: [number, number] = [tMin, tMax];
@@ -318,6 +320,7 @@ function App() {
                   color="#a78bfa"
                   yDomain={convYDomain}
                   xDomain={xDomain}
+                  connectNulls={false}
                 />
               </>
             ) : (
