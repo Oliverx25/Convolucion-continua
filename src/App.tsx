@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { computeConvolution, linspace } from './lib/convolution';
 import { createCustomSignal } from './lib/customExpression';
 import {
@@ -7,6 +7,7 @@ import {
   type SignalId,
 } from './lib/signals';
 import { TimeChart } from './components/TimeChart';
+import { SlidingAnimationChart } from './components/SlidingAnimationChart';
 
 const T = 1;
 const RANGE_MIN = 0.5;
@@ -14,6 +15,7 @@ const RANGE_MAX = 50;
 const RANGE_DEFAULT = 2;
 const N_POINTS = 400;
 const N_INTEGRAL = 600;
+const ANIMATION_DURATION_MS = 5000;
 const DEFAULT_CUSTOM_EXPRESSION = 'sin(2*pi*t)';
 
 function App() {
@@ -22,9 +24,46 @@ function App() {
   const [signalIdG, setSignalIdG] = useState<SignalId>('rect');
   const [customExprG, setCustomExprG] = useState('1');
   const [range, setRange] = useState(RANGE_DEFAULT);
+  const [animationT, setAnimationT] = useState(-RANGE_DEFAULT);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animRef = useRef<number>(0);
+  const startRef = useRef<number>(0);
 
   const tMin = -range;
   const tMax = range;
+
+  useEffect(() => {
+    setAnimationT(tMin);
+  }, [tMin, tMax]);
+
+  useEffect(() => {
+    if (!isAnimating) return;
+    startRef.current = performance.now();
+    const run = () => {
+      const elapsed = performance.now() - startRef.current;
+      const progress = Math.min(1, elapsed / ANIMATION_DURATION_MS);
+      const t = tMin + progress * (tMax - tMin);
+      setAnimationT(t);
+      if (progress < 1) {
+        animRef.current = requestAnimationFrame(run);
+      } else {
+        setIsAnimating(false);
+      }
+    };
+    animRef.current = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [isAnimating, tMin, tMax]);
+
+  const handleRestart = () => {
+    setIsAnimating(false);
+    cancelAnimationFrame(animRef.current);
+    setAnimationT(tMin);
+  };
+
+  const handlePlay = () => {
+    if (animationT >= tMax - (tMax - tMin) / N_POINTS) setAnimationT(tMin);
+    setIsAnimating(true);
+  };
 
   const f = useMemo(() => {
     if (signalIdF === 'custom') return createCustomSignal(customExprF, T);
@@ -64,6 +103,12 @@ function App() {
 
     return { dataF, dataG, dataConv, isValid: true };
   }, [f, g, range]);
+
+  const dataConvVisible = useMemo(() => {
+    return dataConv.filter((p: { t: number; value: number }) => p.t <= animationT);
+  }, [dataConv, animationT]);
+
+  const xDomain: [number, number] = [tMin, tMax];
 
   return (
     <div className="min-h-screen bg-[#0f0f12] text-zinc-100">
@@ -215,7 +260,12 @@ function App() {
               f(t)
             </h2>
             {dataF.length > 0 ? (
-              <TimeChart data={dataF} title="f(t)" color="#00d4aa" />
+              <TimeChart
+                data={dataF}
+                title="f(t)"
+                color="#00d4aa"
+                xDomain={xDomain}
+              />
             ) : (
               <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
                 Elige señales válidas para ver f(t)
@@ -228,7 +278,12 @@ function App() {
               g(t)
             </h2>
             {dataG.length > 0 ? (
-              <TimeChart data={dataG} title="g(t)" color="#f472b6" />
+              <TimeChart
+                data={dataG}
+                title="g(t)"
+                color="#f472b6"
+                xDomain={xDomain}
+              />
             ) : (
               <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
                 Elige señales válidas para ver g(t)
@@ -236,17 +291,61 @@ function App() {
             )}
           </section>
 
+          {isValid && dataConv.length > 0 && (
+            <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-6">
+              <h2 className="mb-4 font-display text-lg font-medium text-zinc-200">
+                Animación didáctica
+              </h2>
+              <p className="mb-4 text-sm text-zinc-400">
+                f(τ) y g(t − τ) en el eje τ. Al reproducir, g se desliza y la convolución (abajo) se va formando.
+              </p>
+              <div className="mb-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={handlePlay}
+                  disabled={isAnimating}
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                >
+                  {isAnimating ? 'Reproduciendo…' : 'Reproducir animación'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestart}
+                  className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-4 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700/80"
+                >
+                  Reiniciar
+                </button>
+                <span className="flex items-center text-sm text-zinc-500">
+                  t = {animationT.toFixed(2)} s
+                </span>
+              </div>
+              <SlidingAnimationChart
+                f={f!}
+                g={g!}
+                tMin={tMin}
+                tMax={tMax}
+                currentT={animationT}
+              />
+            </section>
+          )}
+
           <section className="rounded-xl border border-zinc-800/60 bg-zinc-900/30 p-6">
             <h2 className="mb-4 font-display text-lg font-medium text-zinc-200">
               Convolución (f * g)(t)
             </h2>
             {dataConv.length > 0 ? (
-              <TimeChart
-                data={dataConv}
+              <>
+                <p className="mb-4 text-sm text-zinc-400">
+                  La curva se dibuja al reproducir la animación (de t = {tMin} a t = {tMax}).
+                </p>
+                <TimeChart
+                data={dataConvVisible}
                 title="(f * g)(t)"
                 color="#a78bfa"
                 yDomain="auto"
+                xDomain={xDomain}
               />
+              </>
             ) : (
               <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
                 La convolución se mostrará cuando ambas señales sean válidas

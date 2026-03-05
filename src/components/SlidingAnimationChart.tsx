@@ -5,59 +5,54 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import type { SignalFunction } from '../lib/convolution';
 
-interface TimePoint {
-  t: number;
-  value: number;
+interface SlidingAnimationChartProps {
+  f: SignalFunction;
+  g: SignalFunction;
+  tMin: number;
+  tMax: number;
+  currentT: number;
+  nPoints?: number;
 }
 
-interface TimeChartProps {
-  data: TimePoint[];
-  title?: string;
-  color?: string;
-  yDomain?: [number, number] | 'auto';
-  /** Dominio del eje X para centrar t=0 (ej. [tMin, tMax]) */
-  xDomain?: [number, number];
-}
-
-export function TimeChart({
-  data,
-  title = 'Señal',
-  color = '#00d4aa',
-  yDomain = 'auto',
-  xDomain,
-}: TimeChartProps) {
-  const domain: [number, number] =
-    yDomain === 'auto'
-      ? (() => {
-          const values = data.map((d) => d.value);
-          if (values.length === 0) return [-1.5, 1.5];
-          const min = Math.min(...values);
-          const max = Math.max(...values);
-          const padding = Math.max(0.2, (max - min) * 0.1);
-          return [min - padding, max + padding];
-        })()
-      : yDomain;
+export function SlidingAnimationChart({
+  f,
+  g,
+  tMin,
+  tMax,
+  currentT,
+  nPoints = 300,
+}: SlidingAnimationChartProps) {
+  const tau = Array.from({ length: nPoints }, (_, i) => {
+    const τ = tMin + (i / (nPoints - 1)) * (tMax - tMin);
+    return {
+      tau: τ,
+      f: f(τ),
+      gShifted: g(currentT - τ),
+    };
+  });
 
   return (
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          data={data}
+          data={tau}
           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" opacity={0.5} />
           <XAxis
-            dataKey="t"
+            dataKey="tau"
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
             tickFormatter={(v) => v.toFixed(2)}
-            domain={xDomain}
+            domain={[tMin, tMax]}
             label={{
-              value: 't (s)',
+              value: 'τ (s)',
               position: 'insideBottom',
               offset: -5,
               fill: '#71717a',
@@ -66,7 +61,6 @@ export function TimeChart({
           <YAxis
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
-            domain={domain}
             label={{
               value: 'Amplitud',
               angle: -90,
@@ -81,17 +75,38 @@ export function TimeChart({
               borderRadius: '8px',
             }}
             labelStyle={{ color: '#a1a1aa' }}
-            formatter={(value: number) => [value.toFixed(4), title]}
-            labelFormatter={(t) => `t = ${Number(t).toFixed(3)} s`}
+            labelFormatter={(τ) => `τ = ${Number(τ).toFixed(3)} s · t = ${currentT.toFixed(3)} s`}
+          />
+          <Legend
+            wrapperStyle={{ paddingTop: 8 }}
+            formatter={(value) => (
+              <span className="text-sm text-zinc-300">{value}</span>
+            )}
           />
           <ReferenceLine x={0} stroke="#52525b" strokeDasharray="2 2" />
           <ReferenceLine y={0} stroke="#52525b" strokeDasharray="2 2" />
+          <ReferenceLine
+            x={currentT}
+            stroke="#f472b6"
+            strokeDasharray="4 4"
+            strokeWidth={1.5}
+          />
           <Line
             type="monotone"
-            dataKey="value"
-            name={title}
-            stroke={color}
+            dataKey="f"
+            name="f(τ)"
+            stroke="#00d4aa"
             strokeWidth={2}
+            dot={false}
+            connectNulls
+          />
+          <Line
+            type="monotone"
+            dataKey="gShifted"
+            name="g(t − τ)"
+            stroke="#f472b6"
+            strokeWidth={2}
+            strokeDasharray="4 4"
             dot={false}
             connectNulls
           />
