@@ -9,31 +9,6 @@ import type { SignalFunction } from './convolution';
 
 const math = create(all);
 
-export interface ValidationResult {
-  valid: boolean;
-  error?: string;
-}
-
-/**
- * Valida la sintaxis de una expresión sin crear la señal.
- * Útil para resaltar errores en tiempo real en la UI.
- */
-export function validateExpression(expression: string): ValidationResult {
-  const trimmed = expression.trim();
-  if (!trimmed) return { valid: false, error: 'Escribe una expresión' };
-
-  try {
-    math.compile(trimmed);
-    const scope: { t: number } = { t: 0 };
-    const compiled = math.compile(trimmed);
-    compiled.evaluate(scope);
-    return { valid: true };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { valid: false, error: message };
-  }
-}
-
 export function createCustomSignal(
   expression: string,
   _T: number

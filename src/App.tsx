@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { computeConvolution, linspace } from './lib/convolution';
-import { createCustomSignal, validateExpression, createPiecewiseSignal, parsePiecewiseText } from './lib/customExpression';
+import { createCustomSignal, createPiecewiseSignal, parsePiecewiseText } from './lib/customExpression';
 import {
   SIGNAL_OPTIONS,
   CUSTOM_LABEL,
@@ -86,15 +86,6 @@ function App() {
     animationT > tMin + (tMax - tMin) / N_POINTS &&
     animationT < tMax - (tMax - tMin) / N_POINTS;
 
-  const validationF = useMemo(
-    () => (signalIdF === 'custom' ? validateExpression(customExprF) : { valid: true as const }),
-    [signalIdF, customExprF]
-  );
-  const validationG = useMemo(
-    () => (signalIdG === 'custom' ? validateExpression(customExprG) : { valid: true as const }),
-    [signalIdG, customExprG]
-  );
-
   const f = useMemo(() => {
     if (signalIdF === 'custom') return createCustomSignal(customExprF, T);
     if (signalIdF === 'piecewise') {
@@ -143,13 +134,10 @@ function App() {
     const convMax = convValuesOnly.length
       ? Math.max(...convValuesOnly)
       : 1;
-    const rangeY = convMax - convMin;
-    const padding = rangeY > 0.01
-      ? Math.max(0.2, rangeY * 0.15)
-      : 0.2;
+    const convPadding = Math.max(0.2, (convMax - convMin) * 0.1) || 0.2;
     const convYDomain: [number, number] = [
-      convMin - padding,
-      convMax + padding,
+      convMin - convPadding,
+      convMax + convPadding,
     ];
 
     return { dataConv, convYDomain, isValid: true };
@@ -162,36 +150,6 @@ function App() {
   }, [dataConv, animationT]);
 
   const xDomain: [number, number] = [tMin, tMax];
-
-  const convChartRef = useRef<HTMLDivElement>(null);
-
-  const handleExportCSV = () => {
-    const header = 't (s), (f*g)(t)';
-    const rows = dataConv.map((p) => `${p.t},${p.value}`);
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'convolucion.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleExportSVG = () => {
-    const container = convChartRef.current;
-    const svg = container?.querySelector('svg');
-    if (!svg) return;
-    const serializer = new XMLSerializer();
-    const str = serializer.serializeToString(svg);
-    const blob = new Blob([str], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'convolucion.svg';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="min-h-screen bg-[#0f0f12] text-zinc-100">
@@ -233,24 +191,17 @@ function App() {
                   <option value="custom">{CUSTOM_LABEL}</option>
                 </select>
                 {signalIdF === 'custom' && (
-                  <div className="space-y-1">
-                    <input
-                      type="text"
-                      value={customExprF}
-                      onChange={(e) => setCustomExprF(e.target.value)}
-                      placeholder="sin(2*pi*t)"
-                      className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
-                        validationF.valid
-                          ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
-                          : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
-                      }`}
-                    />
-                    {!validationF.valid && validationF.error && (
-                      <p className="text-xs text-red-400" role="alert">
-                        {validationF.error}
-                      </p>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    value={customExprF}
+                    onChange={(e) => setCustomExprF(e.target.value)}
+                    placeholder="sin(2*pi*t)"
+                    className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
+                      !!f
+                        ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
+                        : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
+                    }`}
+                  />
                 )}
                 {signalIdF === 'piecewise' && (
                   <div className="space-y-1">
@@ -291,24 +242,17 @@ function App() {
                   <option value="custom">{CUSTOM_LABEL}</option>
                 </select>
                 {signalIdG === 'custom' && (
-                  <div className="space-y-1">
-                    <input
-                      type="text"
-                      value={customExprG}
-                      onChange={(e) => setCustomExprG(e.target.value)}
-                      placeholder="1"
-                      className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
-                        validationG.valid
-                          ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
-                          : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
-                      }`}
-                    />
-                    {!validationG.valid && validationG.error && (
-                      <p className="text-xs text-red-400" role="alert">
-                        {validationG.error}
-                      </p>
-                    )}
-                  </div>
+                  <input
+                    type="text"
+                    value={customExprG}
+                    onChange={(e) => setCustomExprG(e.target.value)}
+                    placeholder="1"
+                    className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
+                      !!g
+                        ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
+                        : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
+                    }`}
+                  />
                 )}
                 {signalIdG === 'piecewise' && (
                   <div className="space-y-1">
@@ -421,24 +365,25 @@ function App() {
                 >
                   Reiniciar
                 </button>
-                <span className="flex items-center text-sm text-zinc-500">
+                <span className="shrink-0 text-sm text-zinc-500">
                   t = {animationT.toFixed(2)} s
                 </span>
-              </div>
-              <div className="mb-4">
-                <label htmlFor="time-slider" className="mb-2 block text-sm font-medium text-zinc-400">
-                  Mover tiempo t manualmente (flip & shift)
-                </label>
-                <input
-                  id="time-slider"
-                  type="range"
-                  min={tMin}
-                  max={tMax}
-                  step={(tMax - tMin) / 300}
-                  value={animationT}
-                  onChange={(e) => setAnimationT(parseFloat(e.target.value))}
-                  className="h-2 w-full max-w-md cursor-pointer appearance-none rounded-lg bg-zinc-700 accent-violet-500"
-                />
+                <div className="flex min-w-0 flex-1 basis-48 items-center gap-2">
+                  <label htmlFor="time-slider" className="shrink-0 text-sm text-zinc-400">
+                    t:
+                  </label>
+                  <input
+                    id="time-slider"
+                    type="range"
+                    min={tMin}
+                    max={tMax}
+                    step={(tMax - tMin) / 300}
+                    value={animationT}
+                    onChange={(e) => setAnimationT(parseFloat(e.target.value))}
+                    title="Mover tiempo t manualmente"
+                    className="h-2 min-w-0 flex-1 cursor-pointer appearance-none rounded-lg bg-zinc-700 accent-violet-500"
+                  />
+                </div>
               </div>
               <SlidingAnimationChart
                 f={f!}
@@ -459,24 +404,7 @@ function App() {
                 <p className="mb-4 text-sm text-zinc-400">
                   Eje t fijo: la curva (f * g)(t) se dibuja al reproducir la animación, como un monitor de latidos.
                 </p>
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={handleExportCSV}
-                    className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700/80"
-                  >
-                    Descargar CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExportSVG}
-                    className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700/80"
-                  >
-                    Descargar gráfica (SVG)
-                  </button>
-                </div>
-                <div ref={convChartRef}>
-                  <TimeChart
+                <TimeChart
                   data={dataConvVisible}
                   title="(f * g)(t)"
                   color="#a78bfa"
@@ -484,7 +412,6 @@ function App() {
                   xDomain={xDomain}
                   connectNulls={false}
                 />
-                </div>
               </>
             ) : (
               <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">
