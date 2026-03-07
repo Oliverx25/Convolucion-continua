@@ -296,25 +296,19 @@ function App() {
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
-                  onClick={handlePlay}
-                  disabled={isAnimating}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                  onClick={isAnimating ? handlePause : handlePlay}
+                  className={`rounded-lg px-4 py-2 text-sm font-medium text-white ${
+                    isAnimating
+                      ? 'border border-amber-500/60 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30'
+                      : 'bg-violet-600 hover:bg-violet-500'
+                  }`}
                 >
                   {isAnimating
-                    ? 'Reproduciendo…'
+                    ? 'Pausar'
                     : canResume
                       ? 'Reanudar'
                       : 'Reproducir animación'}
                 </button>
-                {isAnimating && (
-                  <button
-                    type="button"
-                    onClick={handlePause}
-                    className="rounded-lg border border-amber-500/60 bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/30"
-                  >
-                    Pausar
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={handleRestart}
