@@ -1,5 +1,5 @@
 import {
-  LineChart,
+  ComposedChart,
   Line,
   Area,
   XAxis,
@@ -48,7 +48,7 @@ export function SlidingAnimationChart({
   return (
     <div className="h-[320px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
+        <ComposedChart
           data={tau}
           margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
         >
@@ -104,7 +104,7 @@ export function SlidingAnimationChart({
             type="monotone"
             dataKey="positivePart"
             fill="#22c55e"
-            fillOpacity={0.35}
+            fillOpacity={0.5}
             stroke="none"
             baseValue={0}
             name="f·g &gt; 0"
@@ -114,7 +114,7 @@ export function SlidingAnimationChart({
             type="monotone"
             dataKey="negativePart"
             fill="#f43f5e"
-            fillOpacity={0.35}
+            fillOpacity={0.5}
             stroke="none"
             baseValue={0}
             name="f·g &lt; 0"
@@ -139,7 +139,7 @@ export function SlidingAnimationChart({
             dot={false}
             connectNulls
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
