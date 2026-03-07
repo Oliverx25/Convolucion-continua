@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { computeConvolution, linspace } from './lib/convolution';
+import { computeConvolution, linspace, computeAnimationYDomain } from './lib/convolution';
 import { createCustomSignal, createPiecewiseSignal, parsePiecewiseText } from './lib/customExpression';
 import {
   SIGNAL_OPTIONS,
@@ -142,6 +142,11 @@ function App() {
 
     return { dataConv, convYDomain, isValid: true };
   }, [f, g, range]);
+
+  const animationYDomain = useMemo((): [number, number] => {
+    if (!f || !g) return [-1.5, 1.5];
+    return computeAnimationYDomain(f, g, tMin, tMax);
+  }, [f, g, tMin, tMax]);
 
   const dataConvVisible = useMemo(() => {
     return dataConv.map((p) =>
@@ -391,6 +396,7 @@ function App() {
                 tMin={tMin}
                 tMax={tMax}
                 currentT={animationT}
+                yDomain={animationYDomain}
               />
             </section>
           )}

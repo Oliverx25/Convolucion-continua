@@ -19,6 +19,8 @@ interface SlidingAnimationChartProps {
   tMin: number;
   tMax: number;
   currentT: number;
+  /** Dominio Y fijo para que la escala no cambie durante la animación */
+  yDomain?: [number, number];
   nPoints?: number;
 }
 
@@ -28,6 +30,7 @@ export function SlidingAnimationChart({
   tMin,
   tMax,
   currentT,
+  yDomain,
   nPoints = 300,
 }: SlidingAnimationChartProps) {
   const tau = Array.from({ length: nPoints }, (_, i) => {
@@ -70,6 +73,7 @@ export function SlidingAnimationChart({
             stroke="#71717a"
             tick={{ fill: '#a1a1aa', fontSize: 12 }}
             tickFormatter={(v) => formatAxisTick(Number(v))}
+            domain={yDomain}
             label={{
               value: 'Amplitud',
               angle: -90,
