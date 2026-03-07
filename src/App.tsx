@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { computeConvolution, linspace } from './lib/convolution';
-import { createCustomSignal } from './lib/customExpression';
+import { createCustomSignal, validateExpression, createPiecewiseSignal, parsePiecewiseText } from './lib/customExpression';
 import {
   SIGNAL_OPTIONS,
   CUSTOM_LABEL,
@@ -17,12 +17,15 @@ const N_POINTS = 400;
 const N_INTEGRAL = 600;
 const ANIMATION_DURATION_MS = 5000;
 const DEFAULT_CUSTOM_EXPRESSION = 'sin(2*pi*t)';
+const DEFAULT_PIECEWISE = '0 1 1\n1 2 -1';
 
 function App() {
   const [signalIdF, setSignalIdF] = useState<SignalId>('sine');
   const [customExprF, setCustomExprF] = useState(DEFAULT_CUSTOM_EXPRESSION);
+  const [piecewiseF, setPiecewiseF] = useState(DEFAULT_PIECEWISE);
   const [signalIdG, setSignalIdG] = useState<SignalId>('rect');
   const [customExprG, setCustomExprG] = useState('1');
+  const [piecewiseG, setPiecewiseG] = useState(DEFAULT_PIECEWISE);
   const [range, setRange] = useState(RANGE_DEFAULT);
   const [animationT, setAnimationT] = useState(-RANGE_DEFAULT);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -83,15 +86,32 @@ function App() {
     animationT > tMin + (tMax - tMin) / N_POINTS &&
     animationT < tMax - (tMax - tMin) / N_POINTS;
 
+  const validationF = useMemo(
+    () => (signalIdF === 'custom' ? validateExpression(customExprF) : { valid: true as const }),
+    [signalIdF, customExprF]
+  );
+  const validationG = useMemo(
+    () => (signalIdG === 'custom' ? validateExpression(customExprG) : { valid: true as const }),
+    [signalIdG, customExprG]
+  );
+
   const f = useMemo(() => {
     if (signalIdF === 'custom') return createCustomSignal(customExprF, T);
+    if (signalIdF === 'piecewise') {
+      const intervals = parsePiecewiseText(piecewiseF);
+      return intervals ? createPiecewiseSignal(intervals) : null;
+    }
     return SIGNAL_OPTIONS[signalIdF].fn;
-  }, [signalIdF, customExprF]);
+  }, [signalIdF, customExprF, piecewiseF]);
 
   const g = useMemo(() => {
     if (signalIdG === 'custom') return createCustomSignal(customExprG, T);
+    if (signalIdG === 'piecewise') {
+      const intervals = parsePiecewiseText(piecewiseG);
+      return intervals ? createPiecewiseSignal(intervals) : null;
+    }
     return SIGNAL_OPTIONS[signalIdG].fn;
-  }, [signalIdG, customExprG]);
+  }, [signalIdG, customExprG, piecewiseG]);
 
   const { dataConv, convYDomain, isValid } = useMemo(() => {
     const validF = !!f;
@@ -123,10 +143,13 @@ function App() {
     const convMax = convValuesOnly.length
       ? Math.max(...convValuesOnly)
       : 1;
-    const convPadding = Math.max(0.2, (convMax - convMin) * 0.1) || 0.2;
+    const rangeY = convMax - convMin;
+    const padding = rangeY > 0.01
+      ? Math.max(0.2, rangeY * 0.15)
+      : 0.2;
     const convYDomain: [number, number] = [
-      convMin - convPadding,
-      convMax + convPadding,
+      convMin - padding,
+      convMax + padding,
     ];
 
     return { dataConv, convYDomain, isValid: true };
@@ -139,6 +162,36 @@ function App() {
   }, [dataConv, animationT]);
 
   const xDomain: [number, number] = [tMin, tMax];
+
+  const convChartRef = useRef<HTMLDivElement>(null);
+
+  const handleExportCSV = () => {
+    const header = 't (s), (f*g)(t)';
+    const rows = dataConv.map((p) => `${p.t},${p.value}`);
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'convolucion.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportSVG = () => {
+    const container = convChartRef.current;
+    const svg = container?.querySelector('svg');
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const str = serializer.serializeToString(svg);
+    const blob = new Blob([str], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'convolucion.svg';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="min-h-screen bg-[#0f0f12] text-zinc-100">
@@ -169,27 +222,53 @@ function App() {
                   onChange={(e) => setSignalIdF(e.target.value as SignalId)}
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 font-display text-sm text-zinc-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 >
-                  {(Object.entries(SIGNAL_OPTIONS) as [SignalId, { label: string }][]).map(
+                  {(Object.entries(SIGNAL_OPTIONS) as [Exclude<SignalId, 'custom' | 'piecewise'>, { label: string }][]).map(
                     ([id, { label }]) => (
                       <option key={id} value={id}>
                         {label}
                       </option>
                     )
                   )}
+                  <option value="piecewise">Función a trozos</option>
                   <option value="custom">{CUSTOM_LABEL}</option>
                 </select>
                 {signalIdF === 'custom' && (
-                  <input
-                    type="text"
-                    value={customExprF}
-                    onChange={(e) => setCustomExprF(e.target.value)}
-                    placeholder="sin(2*pi*t)"
-                    className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
-                      !!f
-                        ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
-                        : 'border-red-500/60 bg-zinc-800/80 focus:border-red-500 focus:ring-red-500'
-                    }`}
-                  />
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={customExprF}
+                      onChange={(e) => setCustomExprF(e.target.value)}
+                      placeholder="sin(2*pi*t)"
+                      className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
+                        validationF.valid
+                          ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
+                          : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
+                      }`}
+                    />
+                    {!validationF.valid && validationF.error && (
+                      <p className="text-xs text-red-400" role="alert">
+                        {validationF.error}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {signalIdF === 'piecewise' && (
+                  <div className="space-y-1">
+                    <textarea
+                      value={piecewiseF}
+                      onChange={(e) => setPiecewiseF(e.target.value)}
+                      placeholder="0 1 1&#10;1 2 -1"
+                      rows={4}
+                      className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
+                        !!f
+                          ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
+                          : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
+                      }`}
+                    />
+                    <p className="text-xs text-zinc-500">
+                      Una línea por intervalo: <code className="rounded bg-zinc-700/80 px-1">a b expr</code> — en [a, b] se usa la expresión (variable t). Ej: 0 1 1 → valor 1 en [0,1].
+                    </p>
+                  </div>
                 )}
               </div>
               <div className="space-y-4">
@@ -201,27 +280,53 @@ function App() {
                   onChange={(e) => setSignalIdG(e.target.value as SignalId)}
                   className="w-full rounded-lg border border-zinc-700 bg-zinc-800/80 px-4 py-2.5 font-display text-sm text-zinc-100 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 >
-                  {(Object.entries(SIGNAL_OPTIONS) as [SignalId, { label: string }][]).map(
+                  {(Object.entries(SIGNAL_OPTIONS) as [Exclude<SignalId, 'custom' | 'piecewise'>, { label: string }][]).map(
                     ([id, { label }]) => (
                       <option key={id} value={id}>
                         {label}
                       </option>
                     )
                   )}
+                  <option value="piecewise">Función a trozos</option>
                   <option value="custom">{CUSTOM_LABEL}</option>
                 </select>
                 {signalIdG === 'custom' && (
-                  <input
-                    type="text"
-                    value={customExprG}
-                    onChange={(e) => setCustomExprG(e.target.value)}
-                    placeholder="1"
-                    className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
-                      !!g
-                        ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
-                        : 'border-red-500/60 bg-zinc-800/80 focus:border-red-500 focus:ring-red-500'
-                    }`}
-                  />
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={customExprG}
+                      onChange={(e) => setCustomExprG(e.target.value)}
+                      placeholder="1"
+                      className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
+                        validationG.valid
+                          ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
+                          : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
+                      }`}
+                    />
+                    {!validationG.valid && validationG.error && (
+                      <p className="text-xs text-red-400" role="alert">
+                        {validationG.error}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {signalIdG === 'piecewise' && (
+                  <div className="space-y-1">
+                    <textarea
+                      value={piecewiseG}
+                      onChange={(e) => setPiecewiseG(e.target.value)}
+                      placeholder="0 1 1&#10;1 2 -1"
+                      rows={4}
+                      className={`w-full rounded-lg border px-4 py-2.5 font-mono text-sm focus:outline-none focus:ring-1 ${
+                        !!g
+                          ? 'border-zinc-700 bg-zinc-800/80 text-zinc-100 focus:border-violet-500 focus:ring-violet-500'
+                          : 'border-red-500/60 bg-zinc-800/80 text-red-200 focus:border-red-500 focus:ring-red-500'
+                      }`}
+                    />
+                    <p className="text-xs text-zinc-500">
+                      Una línea por intervalo: <code className="rounded bg-zinc-700/80 px-1">a b expr</code> — en [a, b] se usa la expresión (variable t).
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
@@ -275,9 +380,9 @@ function App() {
                 Expresiones inválidas. Usa la variable t (ej: sin(2*pi*t)).
               </p>
             )}
-            {(signalIdF === 'custom' || signalIdG === 'custom') && (!!f || !!g) && (
+            {(signalIdF === 'custom' || signalIdG === 'custom' || signalIdF === 'piecewise' || signalIdG === 'piecewise') && (!!f || !!g) && (
               <p className="mt-3 text-xs text-zinc-500">
-                Expresión personalizada: se evalúa en tiempo real t (no periódica). Puedes definir pulsos únicos, ej: 5*(t&gt;=0)*(t&lt;=2) para un pulso de amplitud 5 en [0, 2].
+                Expresión personalizada: se evalúa en tiempo real t (no periódica). Función a trozos: una línea por intervalo con formato a b expr.
               </p>
             )}
             <p className="mt-4 text-xs text-zinc-500">
@@ -320,6 +425,21 @@ function App() {
                   t = {animationT.toFixed(2)} s
                 </span>
               </div>
+              <div className="mb-4">
+                <label htmlFor="time-slider" className="mb-2 block text-sm font-medium text-zinc-400">
+                  Mover tiempo t manualmente (flip & shift)
+                </label>
+                <input
+                  id="time-slider"
+                  type="range"
+                  min={tMin}
+                  max={tMax}
+                  step={(tMax - tMin) / 300}
+                  value={animationT}
+                  onChange={(e) => setAnimationT(parseFloat(e.target.value))}
+                  className="h-2 w-full max-w-md cursor-pointer appearance-none rounded-lg bg-zinc-700 accent-violet-500"
+                />
+              </div>
               <SlidingAnimationChart
                 f={f!}
                 g={g!}
@@ -339,7 +459,24 @@ function App() {
                 <p className="mb-4 text-sm text-zinc-400">
                   Eje t fijo: la curva (f * g)(t) se dibuja al reproducir la animación, como un monitor de latidos.
                 </p>
-                <TimeChart
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExportCSV}
+                    className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700/80"
+                  >
+                    Descargar CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportSVG}
+                    className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-3 py-2 text-sm font-medium text-zinc-300 hover:bg-zinc-700/80"
+                  >
+                    Descargar gráfica (SVG)
+                  </button>
+                </div>
+                <div ref={convChartRef}>
+                  <TimeChart
                   data={dataConvVisible}
                   title="(f * g)(t)"
                   color="#a78bfa"
@@ -347,6 +484,7 @@ function App() {
                   xDomain={xDomain}
                   connectNulls={false}
                 />
+                </div>
               </>
             ) : (
               <div className="flex h-[320px] items-center justify-center rounded-lg bg-zinc-800/30 text-zinc-500">

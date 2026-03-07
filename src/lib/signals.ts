@@ -41,16 +41,37 @@ export const createRectangularPulse = (dutyCycle: number): SignalFunction => {
   };
 };
 
+/** Escalón unitario u(t): 1 si t ≥ 0, 0 si t < 0 */
+export const unitStep: SignalFunction = (t) => (t >= 0 ? 1 : 0);
+
+/** Aproximación del impulso δ(t): pulso estrecho de área 1 (ancho 0.05) */
+const IMPULSE_WIDTH = 0.05;
+export const impulse: SignalFunction = (t) =>
+  Math.abs(t) < IMPULSE_WIDTH / 2 ? 1 / IMPULSE_WIDTH : 0;
+
+/** Pulso bipolar: positivo luego negativo en cada periodo T=1 */
+export const bipolarPulse: SignalFunction = (t) => {
+  const T = 1;
+  const phase = normalizePhase(t, T);
+  if (phase < 0.25) return 1;
+  if (phase < 0.5) return -1;
+  return 0;
+};
+
 export type SignalId =
   | 'square'
   | 'sawtooth'
   | 'triangle'
   | 'sine'
   | 'rect'
+  | 'step'
+  | 'impulse'
+  | 'bipolar'
+  | 'piecewise'
   | 'custom';
 
 export const SIGNAL_OPTIONS: Record<
-  Exclude<SignalId, 'custom'>,
+  Exclude<SignalId, 'custom' | 'piecewise'>,
   { label: string; fn: SignalFunction }
 > = {
   square: { label: 'Onda cuadrada', fn: squareWave },
@@ -61,6 +82,9 @@ export const SIGNAL_OPTIONS: Record<
     label: 'Pulso rectangular',
     fn: createRectangularPulse(0.25),
   },
+  step: { label: 'Escalón unitario u(t)', fn: unitStep },
+  impulse: { label: 'Impulso δ(t) (aprox.)', fn: impulse },
+  bipolar: { label: 'Pulso bipolar', fn: bipolarPulse },
 };
 
 export const CUSTOM_LABEL = 'Expresión personalizada';
