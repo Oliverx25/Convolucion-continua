@@ -1,6 +1,7 @@
 import {
   LineChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -31,10 +32,16 @@ export function SlidingAnimationChart({
 }: SlidingAnimationChartProps) {
   const tau = Array.from({ length: nPoints }, (_, i) => {
     const τ = tMin + (i / (nPoints - 1)) * (tMax - tMin);
+    const fVal = f(τ);
+    const gVal = g(currentT - τ);
+    const product = fVal * gVal;
     return {
       tau: τ,
-      f: f(τ),
-      gShifted: g(currentT - τ),
+      f: fVal,
+      gShifted: gVal,
+      product,
+      positivePart: product >= 0 ? product : 0,
+      negativePart: product < 0 ? product : 0,
     };
   });
 
@@ -92,6 +99,26 @@ export function SlidingAnimationChart({
             stroke="#f472b6"
             strokeDasharray="4 4"
             strokeWidth={1.5}
+          />
+          <Area
+            type="monotone"
+            dataKey="positivePart"
+            fill="#22c55e"
+            fillOpacity={0.35}
+            stroke="none"
+            baseValue={0}
+            name="f·g &gt; 0"
+            isAnimationActive={false}
+          />
+          <Area
+            type="monotone"
+            dataKey="negativePart"
+            fill="#f43f5e"
+            fillOpacity={0.35}
+            stroke="none"
+            baseValue={0}
+            name="f·g &lt; 0"
+            isAnimationActive={false}
           />
           <Line
             type="monotone"

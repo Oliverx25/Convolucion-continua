@@ -28,6 +28,7 @@ function App() {
   const [isAnimating, setIsAnimating] = useState(false);
   const animRef = useRef<number>(0);
   const startRef = useRef<number>(0);
+  const elapsedRef = useRef<number>(0);
 
   const tMin = -range;
   const tMax = range;
@@ -38,9 +39,10 @@ function App() {
 
   useEffect(() => {
     if (!isAnimating) return;
-    startRef.current = performance.now();
+    startRef.current = performance.now() - elapsedRef.current;
     const run = () => {
       const elapsed = performance.now() - startRef.current;
+      elapsedRef.current = elapsed;
       const progress = Math.min(1, elapsed / ANIMATION_DURATION_MS);
       const t = tMin + progress * (tMax - tMin);
       setAnimationT(t);
@@ -57,13 +59,29 @@ function App() {
   const handleRestart = () => {
     setIsAnimating(false);
     cancelAnimationFrame(animRef.current);
+    elapsedRef.current = 0;
     setAnimationT(tMin);
   };
 
+  const handlePause = () => {
+    setIsAnimating(false);
+    cancelAnimationFrame(animRef.current);
+    elapsedRef.current = performance.now() - startRef.current;
+  };
+
   const handlePlay = () => {
-    if (animationT >= tMax - (tMax - tMin) / N_POINTS) setAnimationT(tMin);
+    const atEnd = animationT >= tMax - (tMax - tMin) / N_POINTS;
+    if (atEnd) {
+      elapsedRef.current = 0;
+      setAnimationT(tMin);
+    }
     setIsAnimating(true);
   };
+
+  const canResume =
+    !isAnimating &&
+    animationT > tMin + (tMax - tMin) / N_POINTS &&
+    animationT < tMax - (tMax - tMin) / N_POINTS;
 
   const f = useMemo(() => {
     if (signalIdF === 'custom') return createCustomSignal(customExprF, T);
@@ -273,17 +291,30 @@ function App() {
                 Animación didáctica
               </h2>
               <p className="mb-4 text-sm text-zinc-400">
-                f(τ) y g(t − τ) en el eje τ. Al reproducir, g se desliza y la convolución (abajo) se va formando.
+                f(τ) y g(t − τ) en el eje τ. Al reproducir, g se desliza y la convolución (abajo) se va formando. El área del integrando f(τ)·g(t−τ) se colorea en verde cuando es positiva y en rojo cuando es negativa.
               </p>
-              <div className="mb-4 flex gap-3">
+              <div className="mb-4 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={handlePlay}
                   disabled={isAnimating}
                   className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
                 >
-                  {isAnimating ? 'Reproduciendo…' : 'Reproducir animación'}
+                  {isAnimating
+                    ? 'Reproduciendo…'
+                    : canResume
+                      ? 'Reanudar'
+                      : 'Reproducir animación'}
                 </button>
+                {isAnimating && (
+                  <button
+                    type="button"
+                    onClick={handlePause}
+                    className="rounded-lg border border-amber-500/60 bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-200 hover:bg-amber-500/30"
+                  >
+                    Pausar
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleRestart}
