@@ -1,0 +1,196 @@
+% Reporte de práctica: Convolución continua
+% Procesamiento Digital de Señales (PDS)
+
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\geometry{margin=2.5cm}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+% Configuración para listados de código
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+}
+
+\title{\textbf{Reporte de práctica: Convolución continua en tiempo}\\[0.5em]
+\large Procesamiento Digital de Señales}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Se desarrolló una aplicación web interactiva para calcular y visualizar la convolución continua de dos señales en tiempo. El reporte describe el marco teórico de la convolución en el contexto de Procesamiento Digital de Señales (PDS), la interpretación geométrica \emph{flip \& shift}, la metodología de implementación (integración numérica por regla del trapecio, definición de señales y visualización animada) y la estructura del software. La herramienta permite elegir señales predefinidas o definidas por el usuario, ajustar la ventana de integración y observar en tiempo real el integrando \(f(\tau)\,g(t-\tau)\) y la curva resultante \((f*g)(t)\).
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Introducción}
+%==============================================================================
+
+La \textbf{convolución} es una operación fundamental en el análisis de señales y sistemas. En el curso de Procesamiento Digital de Señales (PDS) se estudia tanto la convolución continua (en tiempo continuo) como la discreta (en tiempo discreto). La convolución continua de dos señales \(f(t)\) y \(g(t)\) permite caracterizar la respuesta de un sistema lineal e invariante en el tiempo (LTI) ante una entrada arbitraria, a partir de su respuesta al impulso.
+
+El objetivo de esta práctica fue implementar el cálculo numérico de la convolución continua y construir una interfaz que permita:
+\begin{itemize}[noitemsep]
+  \item Definir dos señales \(f(t)\) y \(g(t)\) mediante catálogos predefinidos, expresiones matemáticas o funciones a trozos.
+  \item Calcular \((f*g)(t)\) en una ventana finita de integración.
+  \item Visualizar de forma animada el proceso \emph{flip \& shift} (reflejar y desplazar) que subyace a la integral de convolución.
+  \item Graficar la señal resultante \((f*g)(t)\) de manera progresiva conforme avanza el parámetro \(t\).
+\end{itemize}
+
+El desarrollo se realizó en TypeScript/React con integración numérica por regla del trapecio y librerías de gráficas (Recharts) y evaluación de expresiones (mathjs).
+
+%==============================================================================
+\section{Marco teórico}
+%==============================================================================
+
+\subsection{Definición de la convolución continua}
+
+La convolución continua de dos señales \(f(t)\) y \(g(t)\) se define como
+\begin{equation}
+  (f * g)(t) = \int_{-\infty}^{+\infty} f(\tau)\, g(t - \tau)\, d\tau.
+  \label{eq:conv-def}
+\end{equation}
+La variable \(\tau\) es la variable de integración (eje horizontal en la visualización); \(t\) es un parámetro que fija el instante en el que se evalúa la convolución. Para señales de soporte finito o que decaen, la integral puede restringirse a un intervalo donde el integrando sea no nulo. En la práctica se usa una \textbf{ventana finita} \(\tau \in [\tau_{\min}, \tau_{\max}]\), de modo que
+\begin{equation}
+  (f * g)(t) \approx \int_{\tau_{\min}}^{\tau_{\max}} f(\tau)\, g(t - \tau)\, d\tau.
+  \label{eq:conv-window}
+\end{equation}
+En la aplicación, \(\tau_{\min} = -R\) y \(\tau_{\max} = R\), con \(R\) configurable (rango del eje \(t\)).
+
+\subsection{Propiedades de la convolución}
+
+En el contexto de PDS son relevantes las siguientes propiedades:
+\begin{itemize}
+  \item \textbf{Conmutativa}: \(f * g = g * f\).
+  \item \textbf{Asociativa}: \((f * g) * h = f * (g * h)\).
+  \item \textbf{Distributiva respecto a la suma}: \(f * (g + h) = f * g + f * h\).
+  \item \textbf{Elemento neutro}: la delta de Dirac \(\delta(t)\) cumple \(f * \delta = f\).
+\end{itemize}
+
+\subsection{Interpretación en sistemas LTI}
+
+Para un sistema LTI con respuesta al impulso \(h(t)\), la salida \(y(t)\) ante una entrada \(x(t)\) es
+\begin{equation}
+  y(t) = (h * x)(t) = \int_{-\infty}^{+\infty} h(\tau)\, x(t - \tau)\, d\tau.
+\end{equation}
+La convolución representa la \emph{superposición} de respuestas impulsivas desplazadas y escaladas por la entrada. Esta interpretación se visualiza en la animación al observar cómo la señal \(g(t-\tau)\) (análoga a la respuesta al impulso reflejada y desplazada) ``barre'' sobre \(f(\tau)\) (análoga a la entrada).
+
+\subsection{Interpretación geométrica: flip \& shift}
+
+La operación \(g(t - \tau)\) puede descomponerse en dos pasos:
+\begin{enumerate}
+  \item \textbf{Reflejar} (flip): se define \(\tilde{g}(\tau) = g(-\tau)\), es decir, la señal \(g\) reflejada respecto al origen.
+  \item \textbf{Desplazar} (shift): se evalúa \(\tilde{g}(\tau - t) = g(t - \tau)\), es decir, la señal reflejada desplazada \(t\) unidades en \(\tau\).
+\end{enumerate}
+Al variar \(t\), la curva \(g(t-\tau)\) se desliza sobre el eje \(\tau\). En cada instante \(t\), el valor \((f*g)(t)\) es el \textbf{área neta} bajo la curva del integrando \(f(\tau)\,g(t-\tau)\). En la aplicación, las regiones donde el integrando es positivo se sombrean en verde y donde es negativo en rojo, para distinguir contribuciones positivas y negativas al área.
+
+%==============================================================================
+\section{Metodología y desarrollo}
+%==============================================================================
+
+\subsection{Integración numérica: regla del trapecio}
+
+La integral en \eqref{eq:conv-window} no tiene en general solución analítica cerrada para señales arbitrarias, por lo que se aproxima numéricamente. Se utiliza la \textbf{regla del trapecio} sobre \(N\) puntos equiespaciados en \([\tau_{\min}, \tau_{\max}]\):
+\begin{equation}
+  \int_{\tau_{\min}}^{\tau_{\max}} \phi(\tau)\, d\tau
+  \approx \Delta\tau \left( \frac{\phi(\tau_0)}{2} + \sum_{k=1}^{N-2} \phi(\tau_k) + \frac{\phi(\tau_{N-1})}{2} \right),
+\end{equation}
+con \(\Delta\tau = (\tau_{\max} - \tau_{\min})/(N-1)\) y \(\tau_k = \tau_{\min} + k\,\Delta\tau\). El integrando es \(\phi(\tau) = f(\tau)\,g(t-\tau)\). Para cada valor de salida \(t\) se evalúa \(f(\tau_k)\) y \(g(t - \tau_k)\) en cada \(\tau_k\), se forma la suma trapezoidal y se multiplica por \(\Delta\tau\). En el código se usan \(N = 600\) puntos en la integral (\texttt{N\_INTEGRAL}) y 400 valores de \(t\) para graficar la convolución (\texttt{N\_POINTS}).
+
+\subsection{Definición de señales}
+
+Cada señal se modela como una función \(t \mapsto \text{valor}\) (tipo \texttt{SignalFunction}):
+\begin{itemize}
+  \item \textbf{Predefinidas}: onda cuadrada, diente de sierra, triangular, sinusoidal y pulso rectangular, con periodo \(T=1\) y extensión periódica en el tiempo.
+  \item \textbf{Expresión personalizada}: cadena de texto evaluada con la librería mathjs usando la variable \texttt{t} (ej.: \texttt{sin(2*pi*t)}, pulsos con condiciones \texttt{1*(t>=0)*(t<1)}).
+  \item \textbf{Función a trozos}: varias líneas con formato \texttt{a b expr}, indicando que en el intervalo \([a,b]\) la señal toma el valor de la expresión \texttt{expr}; fuera de los intervalos definidos se asigna 0.
+\end{itemize}
+
+\subsection{Ventana de integración y dominio de visualización}
+
+La ventana de integración \(\tau \in [-R, R]\) y el rango donde se calcula y grafica \((f*g)(t)\) coinciden. El usuario elige \(R\) mediante el control ``Rango de la gráfica (eje t)'' (por ejemplo \(\pm 2\), \(\pm 5\), \(\pm 10\), \(\pm 20\)), de modo que tanto la animación en el eje \(\tau\) como la curva de convolución en el eje \(t\) quedan acotadas al mismo intervalo.
+
+\subsection{Animación y dominio del eje Y fijo}
+
+Para que la escala vertical de la gráfica de animación no cambie durante la reproducción (evitando saltos visuales), se precalcula un dominio del eje Y que contenga todos los valores posibles de \(f(\tau)\), \(g(t-\tau)\) y del producto en el rango de \(\tau\) y \(t\) considerados. Se muestrean \(f\) en \([\tau_{\min}, \tau_{\max}]\) y \(g\) en \([\tau_{\min}-\tau_{\max}, \tau_{\max}-\tau_{\min}]\) (rango de \(t-\tau\)), se obtienen cotas del producto a partir de los extremos de \(f\) y \(g\), y se define el dominio como el intervalo que abarca el mínimo y el máximo de esas cantidades más un margen (padding).
+
+%==============================================================================
+\section{Implementación del software}
+%==============================================================================
+
+\subsection{Herramientas utilizadas}
+
+\begin{itemize}
+  \item \textbf{Vite + React + TypeScript}: entorno de desarrollo y estructura de la aplicación.
+  \item \textbf{Recharts}: gráficas (ComposedChart para combinar áreas y líneas, LineChart para la convolución, ejes con dominio fijo).
+  \item \textbf{Tailwind CSS}: estilos y maquetación.
+  \item \textbf{mathjs}: compilación y evaluación de expresiones matemáticas para señales personalizadas y a trozos.
+\end{itemize}
+
+\subsection{Estructura del proyecto}
+
+\begin{lstlisting}[language=bash, caption={Estructura principal del código fuente}]
+src/
+  App.tsx                 # Estado global, controles, calculo de convolucion
+  lib/
+    convolution.ts        # computeConvolution, linspace, computeAnimationYDomain
+    customExpression.ts   # createCustomSignal, parsePiecewiseText, createPiecewiseSignal
+    signals.ts            # Senales predefinidas (cuadrada, sierra, triangular, etc.)
+    formatAxisTick.ts     # Formato de etiquetas numericas en ejes
+  components/
+    TimeChart.tsx         # Grafica de una senal en el tiempo, p. ej. (f*g)(t)
+    SlidingAnimationChart # f(tau), g(t-tau), areas del integrando, eje Y fijo
+\end{lstlisting}
+
+La función \texttt{computeConvolution} recibe las señales \(f\) y \(g\), los límites \(\tau_{\min}\), \(\tau_{\max}\), el número de muestras en la integral y la lista de tiempos \(t\) donde se desea \((f*g)(t)\). Devuelve el arreglo de valores de la convolución. La animación se controla con \texttt{requestAnimationFrame}, guardando el tiempo transcurrido al pausar para poder reanudar desde el mismo \(t\).
+
+\subsection{Interfaz de usuario}
+
+\begin{enumerate}
+  \item \textbf{Sección ``Señales''}: selección de \(f(t)\) y \(g(t)\) (preset, función a trozos o expresión personalizada) y del rango \(R\) del eje \(t\).
+  \item \textbf{Sección ``Animación didáctica''}: gráfica en el eje \(\tau\) con \(f(\tau)\), \(g(t-\tau)\), áreas del integrando (verde/rojo), controles Reproducir/Pausar/Reanudar/Reiniciar y slider para mover \(t\) manualmente.
+  \item \textbf{Sección ``Convolución (f * g)(t)''}: gráfica de \((f*g)(t)\) que se dibuja de forma progresiva hasta el valor actual de \(t\).
+\end{enumerate}
+
+%==============================================================================
+\section{Resultados y conclusiones}
+%==============================================================================
+
+Se obtuvo una aplicación web funcional que calcula la convolución continua por integración numérica (regla del trapecio) y la visualiza de dos maneras complementarias: (1) la animación del integrando \(f(\tau)\,g(t-\tau)\) en el eje \(\tau\) con sombreado por signo, y (2) la curva \((f*g)(t)\) en el eje \(t\) dibujada de forma progresiva. La interpretación flip \& shift queda explícita al observar el desplazamiento de \(g(t-\tau)\) sobre \(f(\tau)\) y el cambio del área sombreada.
+
+La práctica refuerza los conceptos de PDS sobre convolución continua, sistemas LTI y respuesta al impulso, y muestra cómo llevar la integral de convolución a un algoritmo numérico estable (trapecio) y a una interfaz didáctica reutilizable para el análisis de señales.
+
+%==============================================================================
+\section*{Referencias}
+%==============================================================================
+
+\begin{enumerate}
+  \item Oppenheim, A. V., Willsky, A. S., \& Nawab, S. H. \emph{Señales y sistemas} (2ª ed.). Pearson.
+  \item Proyecto \texttt{Convolucion-continua}: \url{https://github.com/Oliverx25/Convolucion-continua.git} (repositorio del código y README).
+  \item mathjs -- Expresiones matemáticas: \url{https://mathjs.org/}.
+\end{enumerate}
+
+\end{document}
